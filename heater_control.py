@@ -4,14 +4,16 @@ import os
 import re
 import pigpio
 from multiprocessing import Process, Value
+import sys
 
 # Defines
 ONEWIRE_PATH="/sys/bus/w1/devices"
 SENSOR_LABELS={"28-3c01a8169133":"heater","28-3c01a816d9f0":"water"}
 GPIO_PULSE1=16
 GPIO_ENABLE1=12
-TARGET_TEMP=41
-
+TARGET_TEMP=42
+AVG_NUM=30
+MAX_TIME=12
 
 def read_temp_file(file_name):
     ##
@@ -33,13 +35,14 @@ def get_temp_list(labels):
     result={}
     with concurrent.futures.ThreadPoolExecutor() as executor:
         future_list={executor.submit(read_temp_file,dev_name): dev_name for dev_name in list(labels.keys())}
+        time.sleep(0.5)
         for future in concurrent.futures.as_completed(future_list):
             dev_name=future_list[future]
             try:
                 result[labels[dev_name]]=future.result()
             except Exception as exc:
                 pass
-            
+
     return result
 
 def control_heater(st: Value):
@@ -72,20 +75,31 @@ def monitor_temp(st: Value):
 
     # 監視開始時刻を確認する。
     start_time=time.time()
+    last_time=start_time
+    ontime=0
+    total_time=0
 
     t=0
+    avg_temp=0.0
+    temp_array=list()
     while True:
         temp_list=get_temp_list(SENSOR_LABELS)
         # 正常処理
-        if temp_list['water']<TARGET_TEMP:
-            t=200
+        wt=temp_list['water']
+        if wt>0:
+            temp_array.append(wt)
+        if len(temp_array)>AVG_NUM:
+            temp_array.pop(0)
+        avg_temp=sum(temp_array)/len(temp_array)
+        if avg_temp<TARGET_TEMP:
+            t=300
         else:
             t=0
         # 異常処理
-        ## 温度取得に３回連続で失敗したら終了
+        ## 温度取得に10回連続で失敗したら終了
         if temp_list['water'] == 0 or temp_list['heater'] == 0:
             zero_count+=1
-            if zero_count>3:
+            if zero_count>10:
                 exit(0)
         else:
             zero_count=0
@@ -95,11 +109,17 @@ def monitor_temp(st: Value):
                 exit(0)
         st.value=t
         ## 開始から4時間経過したら終了
-        if time.time() - start_time > 4*3600:
+        current_time=time.time()
+        total_time=current_time-start_time
+        if total_time > MAX_TIME*3600:
             exit(0)
+        if t>0:
+            ontime+=current_time - last_time
+        last_time=current_time
         # 動作状態表示
-        print(str(sorted(temp_list.items(),key=lambda x:x[0]))+",st="+str(st.value))
-
+        #print(str(avg_temp))
+        print(str(round(avg_temp,1))+" run:"+str(round(total_time/60,1))+" on:"+str(round(ontime/60,1))+" "+str(sorted(temp_list.items(),key=lambda x:x[0]))+",st="+str(st.value))
+        time.sleep(0.5)
 
 def main():
     ##
@@ -114,4 +134,6 @@ def main():
 
 
 if __name__ == "__main__":
+    if(len(sys.argv)>=2):
+        time.sleep(int(sys.argv[1]))
     main()
