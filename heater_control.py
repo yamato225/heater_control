@@ -6,6 +6,10 @@ import pigpio
 from multiprocessing import Process, Value
 import sys
 
+from linebot import LineBotApi
+from linebot.models import TextSendMessage
+from linebot.exceptions import LineBotApiError
+
 # Defines
 ONEWIRE_PATH="/sys/bus/w1/devices"
 SENSOR_LABELS={"28-3c01a8169133":"heater","28-3c01a816d9f0":"water"}
@@ -14,6 +18,9 @@ GPIO_ENABLE1=12
 TARGET_TEMP=42
 AVG_NUM=30
 MAX_TIME=12
+#環境変数取得
+YOUR_CHANNEL_ACCESS_TOKEN = os.environ["YOUR_CHANNEL_ACCESS_TOKEN"]
+LINE_NOTICE_TARGET = os.environ["LINE_NOTICE_TARGET"]
 
 def read_temp_file(file_name):
     ##
@@ -79,9 +86,19 @@ def monitor_temp(st: Value):
     ontime=0
     total_time=0
 
+    # LINE BOT初期化
+    line_bot_api=LineBotApi(YOUR_CHANNEL_ACCESS_TOKEN)
+
+    try:
+        line_bot_api.push_message(LINE_NOTICE_TARGET, TextSendMessage(text='加熱開始'))
+    except LineBotApi as e:
+        print("Failed to initialize LINE API")
+        exit(0)
+
     t=0
     avg_temp=0.0
     temp_array=list()
+    is_noticed=False
     while True:
         temp_list=get_temp_list(SENSOR_LABELS)
         # 正常処理
@@ -108,7 +125,7 @@ def monitor_temp(st: Value):
             if temp > 60:
                 exit(0)
         st.value=t
-        ## 開始から4時間経過したら終了
+        ## 開始からMAX_TIME時間経過したら終了
         current_time=time.time()
         total_time=current_time-start_time
         if total_time > MAX_TIME*3600:
@@ -116,9 +133,16 @@ def monitor_temp(st: Value):
         if t>0:
             ontime+=current_time - last_time
         last_time=current_time
+        temp_msg=str(sorted(temp_list.items(),key=lambda x:x[0]))
+        if (round(total_time,0) % 600)==0:
+            line_bot_api.push_message(LINE_NOTICE_TARGET, TextSendMessage(text='水温:'+str(avg_temp)))
+
+        if total_time>30 and is_noticed == False and avg_temp >= TARGET_TEMP:
+            line_bot_api.push_message(LINE_NOTICE_TARGET, TextSendMessage(text='お風呂が沸きました。'))
+            is_noticed=True
         # 動作状態表示
         #print(str(avg_temp))
-        print(str(round(avg_temp,1))+" run:"+str(round(total_time/60,1))+" on:"+str(round(ontime/60,1))+" "+str(sorted(temp_list.items(),key=lambda x:x[0]))+",st="+str(st.value))
+        print(str(round(avg_temp,1))+" run:"+str(round(total_time/60,1))+" on:"+str(round(ontime/60,1))+" "+temp_msg+",st="+str(st.value))
         time.sleep(0.5)
 
 def main():
