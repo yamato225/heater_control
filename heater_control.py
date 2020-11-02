@@ -90,7 +90,8 @@ def monitor_temp(st: Value):
     line_bot_api=LineBotApi(YOUR_CHANNEL_ACCESS_TOKEN)
 
     try:
-        line_bot_api.push_message(LINE_NOTICE_TARGET, TextSendMessage(text='加熱開始'))
+        pass
+        #line_bot_api.push_message(LINE_NOTICE_TARGET, TextSendMessage(text='加熱開始'))
     except LineBotApi as e:
         print("Failed to initialize LINE API")
         exit(0)
@@ -98,7 +99,7 @@ def monitor_temp(st: Value):
     t=0
     avg_temp=0.0
     temp_array=list()
-    is_noticed=False
+    is_noticed=True #False
     while True:
         temp_list=get_temp_list(SENSOR_LABELS)
         # 正常処理
@@ -134,8 +135,8 @@ def monitor_temp(st: Value):
             ontime+=current_time - last_time
         last_time=current_time
         temp_msg=str(sorted(temp_list.items(),key=lambda x:x[0]))
-        if (round(total_time,0) % 600)==0:
-            line_bot_api.push_message(LINE_NOTICE_TARGET, TextSendMessage(text='水温:'+str(avg_temp)))
+        #if (round(total_time,0) % 600)==0:
+        #    line_bot_api.push_message(LINE_NOTICE_TARGET, TextSendMessage(text='水温:'+str(avg_temp)))
 
         if total_time>30 and is_noticed == False and avg_temp >= TARGET_TEMP:
             line_bot_api.push_message(LINE_NOTICE_TARGET, TextSendMessage(text='お風呂が沸きました。'))
