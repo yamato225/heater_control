@@ -12,12 +12,15 @@ from linebot.exceptions import LineBotApiError
 
 # Defines
 ONEWIRE_PATH="/sys/bus/w1/devices"
-SENSOR_LABELS={"28-3c01a8169133":"heater","28-3c01a816d9f0":"water"}
+SENSOR_LABELS={"28-3c01a8169133":"heater","28-3c01a816d9f0":"water","28-3c01d607f380":"heater2",}
 GPIO_PULSE1=16
 GPIO_ENABLE1=12
 TARGET_TEMP=42
 AVG_NUM=30
 MAX_TIME=12
+HEATER_TEST_DURATION=30
+HEATER_ERROR_THRESHOLD=1.5
+HEATER_MAX_TEMP=60
 #環境変数取得
 YOUR_CHANNEL_ACCESS_TOKEN = os.environ["YOUR_CHANNEL_ACCESS_TOKEN"]
 LINE_NOTICE_TARGET = os.environ["LINE_NOTICE_TARGET"]
@@ -42,7 +45,6 @@ def get_temp_list(labels):
     result={}
     with concurrent.futures.ThreadPoolExecutor() as executor:
         future_list={executor.submit(read_temp_file,dev_name): dev_name for dev_name in list(labels.keys())}
-        time.sleep(0.5)
         for future in concurrent.futures.as_completed(future_list):
             dev_name=future_list[future]
             try:
@@ -86,6 +88,23 @@ def monitor_temp(st: Value):
     ontime=0
     total_time=0
 
+    #平均温度
+    avg_temp=0.0
+    temp_array=list()
+    heater_array=list()
+
+    #Test heat
+    ## 3秒間通電し、温度変化を確認する。
+    st.value=600
+    while (time.time()-start_time)<HEATER_TEST_DURATION:
+        temp_list=get_temp_list(SENSOR_LABELS)
+        wt=temp_list["water"]
+        if wt>0:
+            heater_array.append(wt)
+        avg_temp=sum(heater_array)/len(heater_array)
+        ratio=max(temp_list.values())/avg_temp
+        print("ht="+str(avg_temp)+",r="+str(ratio))
+
     # LINE BOT初期化
     line_bot_api=LineBotApi(YOUR_CHANNEL_ACCESS_TOKEN)
 
@@ -94,12 +113,10 @@ def monitor_temp(st: Value):
         #line_bot_api.push_message(LINE_NOTICE_TARGET, TextSendMessage(text='加熱開始'))
     except LineBotApi as e:
         print("Failed to initialize LINE API")
-        exit(0)
+        return -1
 
     t=0
-    avg_temp=0.0
-    temp_array=list()
-    is_noticed=True #False
+    is_noticed=False
     while True:
         temp_list=get_temp_list(SENSOR_LABELS)
         # 正常処理
@@ -115,22 +132,25 @@ def monitor_temp(st: Value):
             t=0
         # 異常処理
         ## 温度取得に10回連続で失敗したら終了
-        if temp_list['water'] == 0 or temp_list['heater'] == 0:
+        if len([x for x in temp_list.values() if x < 1])>0:
             zero_count+=1
             if zero_count>10:
-                exit(0)
+                return -1
         else:
             zero_count=0
         ## センサー温度が60度を超えたら終了
         for temp in temp_list.values():
-            if temp > 60:
-                exit(0)
+            if temp > HEATER_MAX_TEMP:
+                return -1
+        temp_ratio=max(temp_list.values())/avg_temp
+        #if temp_ratio > HEATER_ERROR_THRESHOLD:
+        #    return -1
         st.value=t
         ## 開始からMAX_TIME時間経過したら終了
         current_time=time.time()
         total_time=current_time-start_time
         if total_time > MAX_TIME*3600:
-            exit(0)
+            return -1
         if t>0:
             ontime+=current_time - last_time
         last_time=current_time
@@ -142,8 +162,7 @@ def monitor_temp(st: Value):
             line_bot_api.push_message(LINE_NOTICE_TARGET, TextSendMessage(text='お風呂が沸きました。'))
             is_noticed=True
         # 動作状態表示
-        #print(str(avg_temp))
-        print(str(round(avg_temp,1))+" run:"+str(round(total_time/60,1))+" on:"+str(round(ontime/60,1))+" "+temp_msg+",st="+str(st.value))
+        print(str(round(avg_temp,1))+" run:"+str(round(total_time/60,1))+" on:"+str(round(ontime/60,1))+" "+temp_msg+",st="+str(st.value)+",r="+str(round(temp_ratio,1)))
         time.sleep(0.5)
 
 def main():
@@ -155,6 +174,7 @@ def main():
     control_process.start()
     monitor_process=Process(target=monitor_temp,args=(shared_time,))
     monitor_process.start()
+    sys.exit(0)
 
 
 
