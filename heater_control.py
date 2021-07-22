@@ -15,12 +15,12 @@ ONEWIRE_PATH="/sys/bus/w1/devices"
 SENSOR_LABELS={"28-3c01a8169133":"heater","28-3c01a816d9f0":"water","28-3c01d607f380":"heater2",}
 GPIO_PULSE1=16
 GPIO_ENABLE1=12
-TARGET_TEMP=42
+TARGET_TEMP=41.5
 AVG_NUM=30
 MAX_TIME=12
 HEATER_TEST_DURATION=30
-HEATER_ERROR_THRESHOLD=1.5
-HEATER_MAX_TEMP=60
+HEATER_ERROR_THRESHOLD=10
+HEATER_MAX_TEMP=65
 #環境変数取得
 YOUR_CHANNEL_ACCESS_TOKEN = os.environ["YOUR_CHANNEL_ACCESS_TOKEN"]
 LINE_NOTICE_TARGET = os.environ["LINE_NOTICE_TARGET"]
@@ -109,8 +109,8 @@ def monitor_temp(st: Value):
     line_bot_api=LineBotApi(YOUR_CHANNEL_ACCESS_TOKEN)
 
     try:
-        pass
-        #line_bot_api.push_message(LINE_NOTICE_TARGET, TextSendMessage(text='加熱開始'))
+        #pass
+        line_bot_api.push_message(LINE_NOTICE_TARGET, TextSendMessage(text='加熱開始'))
     except LineBotApi as e:
         print("Failed to initialize LINE API")
         return -1
@@ -125,7 +125,8 @@ def monitor_temp(st: Value):
             temp_array.append(wt)
         if len(temp_array)>AVG_NUM:
             temp_array.pop(0)
-        avg_temp=sum(temp_array)/len(temp_array)
+        if len(temp_array)>0:
+            avg_temp=sum(temp_array)/len(temp_array)
         if avg_temp<TARGET_TEMP:
             t=300
         else:
@@ -135,22 +136,26 @@ def monitor_temp(st: Value):
         if len([x for x in temp_list.values() if x < 1])>0:
             zero_count+=1
             if zero_count>10:
-                return -1
+                msg="センサー異常発生"
+                break
         else:
             zero_count=0
         ## センサー温度が60度を超えたら終了
         for temp in temp_list.values():
             if temp > HEATER_MAX_TEMP:
-                return -1
+                msg="センサー温度異常"
+                break
         temp_ratio=max(temp_list.values())/avg_temp
-        #if temp_ratio > HEATER_ERROR_THRESHOLD:
-        #    return -1
+        if temp_ratio > HEATER_ERROR_THRESHOLD:
+            msg="センサー温度異常"
+            break
         st.value=t
         ## 開始からMAX_TIME時間経過したら終了
         current_time=time.time()
         total_time=current_time-start_time
         if total_time > MAX_TIME*3600:
-            return -1
+            msg="時間切れ"
+            break
         if t>0:
             ontime+=current_time - last_time
         last_time=current_time
@@ -164,6 +169,10 @@ def monitor_temp(st: Value):
         # 動作状態表示
         print(str(round(avg_temp,1))+" run:"+str(round(total_time/60,1))+" on:"+str(round(ontime/60,1))+" "+temp_msg+",st="+str(st.value)+",r="+str(round(temp_ratio,1)))
         time.sleep(0.5)
+
+    line_bot_api.push_message(LINE_NOTICE_TARGET, TextSendMessage(text=msg))
+    return -1
+
 
 def main():
     ##
