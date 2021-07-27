@@ -15,11 +15,12 @@ ONEWIRE_PATH="/sys/bus/w1/devices"
 SENSOR_LABELS={"28-3c01a8169133":"heater","28-3c01a816d9f0":"water","28-3c01d607f380":"heater2",}
 GPIO_PULSE1=16
 GPIO_ENABLE1=12
-TARGET_TEMP=41.5
+TARGET_TEMP=40.5
 AVG_NUM=30
 MAX_TIME=12
 HEATER_TEST_DURATION=30
 HEATER_ERROR_THRESHOLD=10
+MAX_DIFF_THRESHOLD=6
 HEATER_MAX_TEMP=65
 #環境変数取得
 YOUR_CHANNEL_ACCESS_TOKEN = os.environ["YOUR_CHANNEL_ACCESS_TOKEN"]
@@ -87,23 +88,13 @@ def monitor_temp(st: Value):
     last_time=start_time
     ontime=0
     total_time=0
+    max_temp=0
+    old_max_temp=0
 
     #平均温度
     avg_temp=0.0
     temp_array=list()
     heater_array=list()
-
-    #Test heat
-    ## 3秒間通電し、温度変化を確認する。
-    st.value=600
-    while (time.time()-start_time)<HEATER_TEST_DURATION:
-        temp_list=get_temp_list(SENSOR_LABELS)
-        wt=temp_list["water"]
-        if wt>0:
-            heater_array.append(wt)
-        avg_temp=sum(heater_array)/len(heater_array)
-        ratio=max(temp_list.values())/avg_temp
-        print("ht="+str(avg_temp)+",r="+str(ratio))
 
     # LINE BOT初期化
     line_bot_api=LineBotApi(YOUR_CHANNEL_ACCESS_TOKEN)
@@ -141,14 +132,15 @@ def monitor_temp(st: Value):
         else:
             zero_count=0
         ## センサー温度が60度を超えたら終了
-        for temp in temp_list.values():
-            if temp > HEATER_MAX_TEMP:
-                msg="センサー温度異常"
-                break
-        temp_ratio=max(temp_list.values())/avg_temp
-        if temp_ratio > HEATER_ERROR_THRESHOLD:
-            msg="センサー温度異常"
+        max_temp=max(temp_list.values())
+        if max_temp > HEATER_MAX_TEMP:
+            msg="異常加熱発生"
             break
+        ## 温度が急激に上昇した場合はヒーターを停止する。
+        if (max_temp - old_max_temp)>MAX_DIFF_THRESHOLD:
+            t=0
+        old_max_temp=max_temp
+        temp_ratio=max(temp_list.values())/avg_temp 
         st.value=t
         ## 開始からMAX_TIME時間経過したら終了
         current_time=time.time()
