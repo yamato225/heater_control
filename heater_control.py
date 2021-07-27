@@ -90,6 +90,7 @@ def monitor_temp(st: Value):
     total_time=0
     max_temp=0
     old_max_temp=0
+    max_diff_over_time=0
 
     #平均温度
     avg_temp=0.0
@@ -100,8 +101,8 @@ def monitor_temp(st: Value):
     line_bot_api=LineBotApi(YOUR_CHANNEL_ACCESS_TOKEN)
 
     try:
-        #pass
-        line_bot_api.push_message(LINE_NOTICE_TARGET, TextSendMessage(text='加熱開始'))
+        pass
+        #line_bot_api.push_message(LINE_NOTICE_TARGET, TextSendMessage(text='加熱開始'))
     except LineBotApi as e:
         print("Failed to initialize LINE API")
         return -1
@@ -136,9 +137,12 @@ def monitor_temp(st: Value):
         if max_temp > HEATER_MAX_TEMP:
             msg="異常加熱発生"
             break
-        ## 温度が急激に上昇した場合はヒーターを停止する。
-        if (max_temp - old_max_temp)>MAX_DIFF_THRESHOLD:
+        ## 温度が急激に上昇した場合はヒーターを一定時間停止する。
+        if (max_temp - old_max_temp)>MAX_DIFF_THRESHOLD or (max_diff_over_time>0):
             t=0
+            max_diff_over_time=10
+        if max_diff_over_time>0:
+            max_diff_over_time-=1
         old_max_temp=max_temp
         temp_ratio=max(temp_list.values())/avg_temp 
         st.value=t
@@ -162,7 +166,7 @@ def monitor_temp(st: Value):
         print(str(round(avg_temp,1))+" run:"+str(round(total_time/60,1))+" on:"+str(round(ontime/60,1))+" "+temp_msg+",st="+str(st.value)+",r="+str(round(temp_ratio,1)))
         time.sleep(0.5)
 
-    line_bot_api.push_message(LINE_NOTICE_TARGET, TextSendMessage(text=msg))
+    #line_bot_api.push_message(LINE_NOTICE_TARGET, TextSendMessage(text=msg))
     return -1
 
 
