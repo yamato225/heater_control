@@ -88,13 +88,14 @@ def monitor_temp(st: Value):
     last_time=start_time
     ontime=0
     total_time=0
-    max_temp=0
-    old_max_temp=0
-    max_diff_over_time=0
+    temp_diff=0
+    max_temp_diff=0
+    sleep_time=0
 
     #平均温度
     avg_temp=0.0
     temp_array=list()
+    old_temp_list={}
     heater_array=list()
 
     # LINE BOT初期化
@@ -109,6 +110,7 @@ def monitor_temp(st: Value):
 
     t=0
     is_noticed=False
+    is_emerg=False
     while True:
         temp_list=get_temp_list(SENSOR_LABELS)
         # 正常処理
@@ -132,19 +134,34 @@ def monitor_temp(st: Value):
                 break
         else:
             zero_count=0
-        ## センサー温度が60度を超えたら終了
-        max_temp=max(temp_list.values())
-        if max_temp > HEATER_MAX_TEMP:
+
+        max_temp_diff=0
+        for key in temp_list.keys():
+            if temp_list[key] > HEATER_MAX_TEMP:
+                max_temp=temp_list[key]
+                is_emerg=True
+                break
+            try:
+                temp_diff=temp_list[key] - old_temp_list[key]
+                #print(""+key+",diff="+str(temp_diff)+"     "+str(temp_list[key])+","+str(old_temp_list[key]))
+            except:
+                temp_diff=0
+            if temp_diff > max_temp_diff:
+                max_temp_diff=temp_diff
+            if temp_list[key]>0:
+                old_temp_list[key]=temp_list[key]
+            if temp_diff>MAX_DIFF_THRESHOLD:
+                sleep_time=temp_diff
+                break
+
+        if is_emerg:
             msg="異常加熱発生"
+            print(msg+"temp="+str(max_temp))
             break
-        ## 温度が急激に上昇した場合はヒーターを一定時間停止する。
-        if (max_temp - old_max_temp)>MAX_DIFF_THRESHOLD:
-            max_diff_over_time=10
-        if max_diff_over_time>0:
+        if sleep_time>0:
             t=0
-            max_diff_over_time-=1
-        old_max_temp=max_temp
-        temp_ratio=max(temp_list.values())/avg_temp 
+            sleep_time-=1
+        temp_ratio=max(temp_list.values())/avg_temp
         st.value=t
         ## 開始からMAX_TIME時間経過したら終了
         current_time=time.time()
@@ -163,7 +180,7 @@ def monitor_temp(st: Value):
             line_bot_api.push_message(LINE_NOTICE_TARGET, TextSendMessage(text='お風呂が沸きました。'))
             is_noticed=True
         # 動作状態表示
-        print(str(round(avg_temp,1))+" run:"+str(round(total_time/60,1))+" on:"+str(round(ontime/60,1))+" "+temp_msg+",st="+str(st.value)+",r="+str(round(temp_ratio,1)))
+        print(str(round(avg_temp,1))+" run:"+str(round(total_time/60,1))+" on:"+str(round(ontime/60,1))+" "+temp_msg+",st="+str(st.value)+",maxdiff="+str(max_temp_diff) )
         time.sleep(0.5)
 
     print(msg)
