@@ -12,12 +12,12 @@ from linebot.exceptions import LineBotApiError
 
 # Defines
 ONEWIRE_PATH="/sys/bus/w1/devices"
-SENSOR_LABELS={"28-3c01a8169133":"heater","28-3c01a816d9f0":"water","28-3c01d607f380":"heater2",}
+SENSOR_LABELS={"28-3c01a8169133":"heater","28-3c01a816d9f0":"water","28-3c01d607f380":"heater2","28-3c01d60747d7":"heater3","28-3c01d6076b83":"heater4","28-3c01d607efb1":"heater5"}
 GPIO_PULSE1=16
 GPIO_ENABLE1=12
-TARGET_TEMP=40.5
+TARGET_TEMP=42.5
 AVG_NUM=30
-MAX_TIME=12
+MAX_TIME=6
 HEATER_TEST_DURATION=30
 HEATER_ERROR_THRESHOLD=10
 MAX_DIFF_THRESHOLD=3
