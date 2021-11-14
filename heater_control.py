@@ -91,6 +91,7 @@ def monitor_temp(st: Value):
     temp_diff=0
     max_temp_diff=0
     sleep_time=0
+    current_time=0
 
     #平均温度
     avg_temp=0.0
@@ -162,7 +163,10 @@ def monitor_temp(st: Value):
             msg="異常加熱発生"
             print(msg+"temp="+str(max_temp))
             break
-        time_diff=time.time() - current_time
+        if current_time>0:
+            time_diff=time.time() - current_time
+        else
+            time_diff=0
         current_time=time.time()
         if sleep_time>0:
             t=0
