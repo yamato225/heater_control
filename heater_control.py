@@ -116,7 +116,7 @@ def monitor_temp(st: Value):
         # 正常処理
         wt=temp_list['water']
         if t==0:
-            correct_data=list(filter(lambda x: x > 0, temp_list))
+            correct_data=list(filter(lambda x: x > 0, temp_list.values()))
             wt=sum(correct_data)/len(correct_data)
         if wt>0:
             temp_array.append(wt)
@@ -185,7 +185,7 @@ def monitor_temp(st: Value):
             line_bot_api.push_message(LINE_NOTICE_TARGET, TextSendMessage(text='お風呂が沸きました。'))
             is_noticed=True
         # 動作状態表示
-        print(str(round(avg_temp,1))+" run:"+str(round(total_time/60,1))+" on:"+str(round(ontime/60,1))+" "+temp_msg+",st="+str(st.value)+",maxdiff="+str(max_temp_diff) )
+        print(str(round(avg_temp,1))+" run:"+str(round(total_time/60,1))+" on:"+str(round(ontime/60,1))+" "+temp_msg+",st="+str(st.value)+",maxdiff="+str(max_temp_diff)+","+str(sleep_time) )
         time.sleep(0.5)
 
     print(msg)
