@@ -15,7 +15,7 @@ ONEWIRE_PATH="/sys/bus/w1/devices"
 SENSOR_LABELS={"28-3c01a8169133":"heater","28-3c01a816d9f0":"water","28-3c01d607f380":"heater2","28-3c01d60747d7":"heater3","28-3c01d6076b83":"heater4","28-3c01d607efb1":"heater5"}
 GPIO_PULSE1=16
 GPIO_ENABLE1=12
-TARGET_TEMP=42.5
+TARGET_TEMP=42.0
 AVG_NUM=30
 MAX_TIME=6
 HEATER_TEST_DURATION=30
@@ -115,6 +115,9 @@ def monitor_temp(st: Value):
         temp_list=get_temp_list(SENSOR_LABELS)
         # 正常処理
         wt=temp_list['water']
+        if t=0:
+            correct_data=list(filter(lambda x: x > 0, temp_list))
+            wt=sum(correct_data)/len(correct_data)
         if wt>0:
             temp_array.append(wt)
         if len(temp_array)>AVG_NUM:
