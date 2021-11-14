@@ -115,7 +115,7 @@ def monitor_temp(st: Value):
         temp_list=get_temp_list(SENSOR_LABELS)
         # 正常処理
         wt=temp_list['water']
-        if t=0:
+        if t==0:
             correct_data=list(filter(lambda x: x > 0, temp_list))
             wt=sum(correct_data)/len(correct_data)
         if wt>0:
