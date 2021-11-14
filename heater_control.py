@@ -165,7 +165,7 @@ def monitor_temp(st: Value):
             break
         if current_time>0:
             time_diff=time.time() - current_time
-        else
+        else:
             time_diff=0
         current_time=time.time()
         if sleep_time>0:
