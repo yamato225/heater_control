@@ -102,8 +102,8 @@ def monitor_temp(st: Value):
     line_bot_api=LineBotApi(YOUR_CHANNEL_ACCESS_TOKEN)
 
     try:
-        #pass
-        line_bot_api.push_message(LINE_NOTICE_TARGET, TextSendMessage(text='加熱開始'))
+        pass
+        #line_bot_api.push_message(LINE_NOTICE_TARGET, TextSendMessage(text='加熱開始'))
     except LineBotApi as e:
         print("Failed to initialize LINE API")
         return -1
@@ -154,6 +154,7 @@ def monitor_temp(st: Value):
             if temp_list[key]>0:
                 old_temp_list[key]=temp_list[key]
             if temp_diff>MAX_DIFF_THRESHOLD:
+                # n度上昇したら、n秒待つ。
                 sleep_time=temp_diff
                 break
 
@@ -161,13 +162,14 @@ def monitor_temp(st: Value):
             msg="異常加熱発生"
             print(msg+"temp="+str(max_temp))
             break
+        time_diff=time.time() - current_time
+        current_time=time.time()
         if sleep_time>0:
             t=0
-            sleep_time-=1
+            sleep_time-=time_diff
         temp_ratio=max(temp_list.values())/avg_temp
         st.value=t
         ## 開始からMAX_TIME時間経過したら終了
-        current_time=time.time()
         total_time=current_time-start_time
         if total_time > MAX_TIME*3600:
             msg="時間切れ"
