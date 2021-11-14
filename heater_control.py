@@ -189,7 +189,8 @@ def monitor_temp(st: Value):
             line_bot_api.push_message(LINE_NOTICE_TARGET, TextSendMessage(text='お風呂が沸きました。'))
             is_noticed=True
         # 動作状態表示
-        print(str(round(avg_temp,1))+" run:"+str(round(total_time/60,1))+" on:"+str(round(ontime/60,1))+" "+temp_msg+",st="+str(st.value)+",maxdiff="+str(max_temp_diff)+","+str(sleep_time) )
+        print(str(round(avg_temp,1))+" run:"+str(round(total_time/60,1))+" on:"+str(round(ontime/60,1))+",st="+str(st.value)+",sleep="+str(round(sleep_time)) )
+        print(temp_msg)
         time.sleep(0.5)
 
     print(msg)
